@@ -178,3 +178,17 @@ python people.py 127.0.0.1 8895 hjs
 
 
 
+### 经验之谈
+
+#### 1. json.dumps，自动将元组tuple视为列表list。
+
+```python
+import json
+d = {'1': 'a', '2': (1, 2, 3)}
+print(json.dumps(d, ensure_ascii=False))
+
+# {"1": "a", "2": [1, 2, 3]}
+```
+
+#### 2. udp协议一次传输不能太长，数据应小于1024字节，否则会接收不到。
+
