@@ -1,11 +1,11 @@
-import random
-import threading
+import datetime
+import json
 import socket
 import sys
-import json
-from block import *
-from pprint import pprint
+import threading
+
 import config
+from block import *
 
 
 class Node:
@@ -76,7 +76,7 @@ class Node:
                 if data[pos] == '@':
                     break
                 pos += 1
-            dic[int(data[:pos])] = data[pos+1:]
+            dic[int(data[:pos])] = data[pos + 1:]
             while True:
                 data, addr = self.udp_socket.recvfrom(1024)
                 data = data.decode()
@@ -145,13 +145,13 @@ class Node:
                     break
             # todo 修改接到交易信息后的操作
             elif msg['type'] == 'block-trade':
-                data = msg['body']['data']
+                # data = msg['body']['data']
                 # 启动poet算法
                 # rand = self.poet_base + random.random() * self.poet_base
                 # self.timer = threading.Timer(rand, self.get_miner_priority, args=(data,))
                 # self.timer.start()
                 # 启动pow算法
-                self.task = threading.Thread(target=self.pow_mining, args=(data,))
+                self.task = threading.Thread(target=self.pow_mining, args=(msg,))
                 self.done = False
                 self.event.set()
                 self.task.start()
@@ -208,96 +208,112 @@ class Node:
 
     def console(self):
         while True:
-            cmd = input(f'{self.name}>')
-            if not cmd:
-                continue
-            # help
-            # c name msg
-            params = cmd.split()
-            if params[0] == 'c':
-                msg = {
-                    'type': 'chat',
-                    'body': {
-                        'name': self.name,
-                        'data': params[2]
-                    }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
+            try:
+                cmd = input(f'{self.name}>')
+                if not cmd:
                     continue
-                self.send_to_one(msg, self.friends[params[1]])
-            # ca msg
-            elif params[0] == 'ca':
-                msg = {
-                    'type': 'broadcast',
-                    'body': {
-                        'name': self.name,
-                        'data': params[1]
+                # help
+                # c name msg
+                params = cmd.split()
+                if params[0] == 'c':
+                    msg = {
+                        'type': 'chat',
+                        'body': {
+                            'name': self.name,
+                            'data': params[2]
+                        }
                     }
-                }
-                self.send_to_all(msg)
-            # q
-            elif params[0] == 'q':
-                msg = {
-                    'type': 'quit',
-                    'body': {
-                        'name': self.name
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+                # ca msg
+                elif params[0] == 'ca':
+                    msg = {
+                        'type': 'broadcast',
+                        'body': {
+                            'name': self.name,
+                            'data': params[1]
+                        }
                     }
-                }
-                self.send_to_all(msg)
-                break
-            # lf
-            elif params[0] == 'lf':
-                for name, ip_port in self.friends.items():
-                    print(name, ip_port)
-            # ln
-            elif params[0] == 'ln':
-                print(self.name)
-                print(self.ip, self.port)
-            # 区块链
-            # b
-            elif params[0] == 'b':
-                msg = {
-                    'type': 'block-trade',
-                    'body': {
-                        'data': params[1]
+                    self.send_to_all(msg)
+                # q
+                elif params[0] == 'q':
+                    msg = {
+                        'type': 'quit',
+                        'body': {
+                            'name': self.name
+                        }
                     }
-                }
-                self.send_to_all(msg)
-            # lb
-            elif params[0] == 'lb':
-                for block in self.block_chain:
-                    pprint(block.get_content())
-            # la
-            elif params[0] == 'la':
-                pprint(self.account.get_content())
-            elif params[0] == 'h':
-                tips = {
-                    'b': 'launch mining.    usage: b <data>    eg: b GoodMoring!',
-                    'c': 'chat to one.  usage: c <fname> <data> eg: c yzw GoodMoring!',
-                    'ca': 'chat to all. usage: c <data> eg: c GoodMoring!',
-                    'h': 'show helps.',
-                    'la': 'list account.',
-                    'lb': 'list block chain.',
-                    'lf': 'list friends.',
-                    'ln': 'list node.',
-                    'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
-                    'q': 'quit.'
-                }
-                for cmd, tip in tips.items():
-                    print("{:5} {}".format(cmd, tip))
-            # sync 同步区块链
-            elif params[0] == 'sync':
-                msg = {
-                    'type': 'block-sync-query',
-                    'body': {
-                        'len': len(self.block_chain)
+                    self.send_to_all(msg)
+                    break
+                # lf
+                elif params[0] == 'lf':
+                    for name, ip_port in self.friends.items():
+                        print(name, ip_port)
+                # ln
+                elif params[0] == 'ln':
+                    print(self.name)
+                    print(self.ip, self.port)
+                # 区块链
+                # b
+                elif params[0] == 'b':
+                    msg = {
+                        'type': 'block-trade',
+                        'body': {
+                            'data': params[1],
+                            'diff': 19
+                        }
                     }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
-                    continue
-                self.send_to_one(msg, self.friends[params[1]])
+                    self.send_to_all(msg)
+                # lb
+                elif params[0] == 'lb':
+                    for block in self.block_chain:
+                        pprint(block.get_content())
+                # la
+                elif params[0] == 'la':
+                    pprint(self.account.get_content())
+                elif params[0] == 'h':
+                    tips = {
+                        'b': 'launch mining.    usage: b <data>    eg: b GoodMorning!',
+                        'c': 'chat to one.  usage: c <fname> <data> eg: c yzw GoodMorning!',
+                        'ca': 'chat to all. usage: c <data> eg: c GoodMorning!',
+                        'h': 'show helps.',
+                        'la': 'list account.',
+                        'lb': 'list block chain.',
+                        'lf': 'list friends.',
+                        'ln': 'list node.',
+                        'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
+                        'sl': 'sync block chain to the longest one.',
+                        'q': 'quit.'
+                    }
+                    for cmd, tip in tips.items():
+                        print("{:5} {}".format(cmd, tip))
+                # sync 同步区块链
+                elif params[0] == 'sync':
+                    msg = {
+                        'type': 'block-sync-query',
+                        'body': {
+                            'len': len(self.block_chain)
+                        }
+                    }
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+                # sl 同步到最长的区块链
+                elif params[0] == 'sl':
+                    msg = {
+                        'type': 'block-sync-query',
+                        'body': {
+                            'len': len(self.block_chain)
+                        }
+                    }
+                    for name, ip_port in self.friends.items():
+                        self.send_to_one(msg, self.friends[name])
+
+            except BaseException:
+                print('Errors in parameters. Try `h` for more information.')
 
     # def get_miner_priority(self, data):
     #     # 立马通知其他节点
@@ -317,15 +333,16 @@ class Node:
     #     self.send_to_all(block_msg)
 
     # todo 多线程处理函数
-    def pow_mining(self, data):
+    def pow_mining(self, msg):
         old_block = self.block_chain[-1]
         new_block = Block()
         new_block.index = old_block.index + 1
         new_block.time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        new_block.data = data
+        # new_block.data = data
+        new_block.data = msg['body']['data']
         new_block.last_hash = old_block.cur_hash
         new_block.miner_addr = self.account.address
-        new_block.diff_num = 17
+        new_block.diff_num = msg['body']['diff']
         new_block.nonce = 0
 
         # 开始挖矿
