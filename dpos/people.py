@@ -10,17 +10,16 @@ from pprint import pprint
 import config
 
 MAX_QUEUE_SIZE = 2
-MAX_VOTE_TIME = 1
+MAX_VOTE_TIME = 0.5
 
 class Node:
     account = None
     block_chain = []
-    
+
     tokens = 0
     timer = None
     congress = dict()
     delegate_queue = []
-    queue_size = MAX_QUEUE_SIZE
     event = threading.Event()
     supporters = dict()
 
@@ -35,7 +34,6 @@ class Node:
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_socket.bind((ip, port))
         self.udp_socket = udp_socket
-        self.timer = threading.Timer(MAX_VOTE_TIME, self.vote_ending, args=())
 
     def send_to_one(self, msg, ip_port):
         msg = json.dumps(msg).encode('utf8')
@@ -68,6 +66,7 @@ class Node:
             }
         }
         self.send_to_one(msg, known_ip_port)
+
 
     def receive_data(self):
         total_data = ''
@@ -127,7 +126,6 @@ class Node:
                             }
                         }
                         self.send_to_one(new_msg, ip_port)
-                self.queue_size = MAX_QUEUE_SIZE if len(self.friends) > MAX_QUEUE_SIZE else 1
 
             elif msg['type'] == 'introduce':
                 new_friend = msg['body']
@@ -146,7 +144,6 @@ class Node:
                 name = msg['body']['name']
                 if not addr == (self.ip, self.port):
                     ip_port = self.friends.pop(name)
-                    self.queue_size = MAX_QUEUE_SIZE if len(self.friends) > MAX_QUEUE_SIZE else 1
                     print(f"{name} {ip_port} is gone")
                 else:
                     break
@@ -167,23 +164,33 @@ class Node:
                     # 成功打包区块，获得奖励
                     if new_block.miner_addr == self.account.address:
                         total_bonus = 200
-                        # 分红
-                        total_tokens = sum(self.supporters.values())
-                        for ip_port, tokens in self.supporters:
-                            bonus = int(tokens / total_tokens) * total_bonus
-                            new_msg = {
-                                'type': 'block-bonus',
-                                'body': {
-                                    'bonus': bonus
+                        if not self.supporters:
+                            self.account.money += total_bonus
+                        else:
+                            # 分红
+                            total_tokens = sum(self.supporters.values())
+                            for ip_port, tokens in self.supporters.items():
+                                bonus = int(tokens / total_tokens * total_bonus)
+                                new_msg = {
+                                    'type': 'block-bonus',
+                                    'body': {
+                                        'bonus': bonus
+                                    }
                                 }
-                            }
-                            self.send_to_one(new_msg, ip_port)
+                                self.send_to_one(new_msg, ip_port)
+                if self.delegate_queue and self.delegate_queue[0] == addr:
+                    self.delegate_queue.pop(0)
+                if not self.delegate_queue:
+                    self.supporters = dict()
+                    self.congress = dict()
+                    self.tokens = 0
             elif msg['type'] == 'block-bonus':
                 bonus = msg['body']['bonus']
                 self.account.money += bonus
             elif msg['type'] == 'block-vote-start':
                 # 从friends中随机选取一人投票
-                ip_port = random.sample(list(self.friends.values()), 1)
+
+                ip_port = random.sample(list(self.friends.values()), 1)[0]
                 new_msg = {
                     'type': 'block-vote',
                     'body': {
@@ -191,7 +198,6 @@ class Node:
                     }
                 }
                 self.send_to_one(new_msg, ip_port)
-                self.tokens = 0
             elif msg['type'] == 'block-vote':
                 tokens = msg['body']['tokens']
                 self.supporters[addr] = tokens
@@ -210,11 +216,11 @@ class Node:
                 self.congress[addr] = msg['body']['tokens']
                 # 所有节点投票完毕
                 if len(self.congress) == len(self.friends):
+                    queue_size = min(MAX_QUEUE_SIZE, len(self.friends))
+                    # 选票前queue_size的成为代表
                     delegate_queue = sorted(self.congress.items(), key=lambda x: x[1], reverse=True)
-                    self.delegate_queue = [i[0] for i in delegate_queue[:self.queue_size]]
+                    self.delegate_queue = [i[0] for i in delegate_queue[:queue_size]]
                     self.event.set()
-
-
             elif msg['type'] == 'block-sync-query':
                 length = msg['body']['len']
                 if len(self.block_chain) > length:
@@ -252,6 +258,8 @@ class Node:
 
     def console(self):
         while True:
+            # 先不使用try catch 方便debug
+            # try:
             cmd = input(f'{self.name}>')
             if not cmd:
                 continue
@@ -308,6 +316,7 @@ class Node:
                     }
                     self.send_to_all(msg)
                     # 发送选举结束
+                    self.timer = threading.Timer(MAX_VOTE_TIME, self.vote_ending, args=())
                     self.timer.start()
                     self.event.clear()
                     # 等待直到选举完毕
@@ -320,7 +329,8 @@ class Node:
                         'data': params[1]
                     }
                 }
-                self.send_to_one(msg, self.delegate_queue.pop(0))
+                ip_port = self.delegate_queue.pop(0)
+                self.send_to_one(msg, ip_port)
             # lb
             elif params[0] == 'lb':
                 for block in self.block_chain:
@@ -339,10 +349,13 @@ class Node:
                     'lf': 'list friends.',
                     'ln': 'list node.',
                     'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
-                    'q': 'quit.'
+                    'sl': 'sync longest block chain',
+                    'q': 'quit.',
+                    'lc': 'list congress',
+                    'ld': 'list delegate_queue'
                 }
-                for cmd, tip in tips.items():
-                    print("{:5} {}".format(cmd, tip))
+                for cm, tip in tips.items():
+                    print("{:5} {}".format(cm, tip))
             # sync 同步区块链
             elif params[0] == 'sync':
                 msg = {
@@ -358,6 +371,13 @@ class Node:
             # list congress
             elif params[0] == 'lc':
                 pprint(self.congress)
+            elif params[0] == 'ld':
+                pprint(self.delegate_queue)
+            elif params[0] == 'ls':
+                pprint(self.supporters)
+
+            # except BaseException:
+            #     print('Errors in parameters. Try `h` for more information.')
 
     def vote_ending(self):
         msg = {
@@ -372,7 +392,7 @@ def main():
     name = sys.argv[3]
 
     node = Node(ip, port, name)
-    node.account = Account(name, 100)
+    node.account = Account(name, random.randint(1, 10) * 100)
     node.block_chain.append(get_genesis_block())
 
     known_ip_port = config.known_ip_port
