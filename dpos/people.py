@@ -189,7 +189,6 @@ class Node:
                 self.account.money += bonus
             elif msg['type'] == 'block-vote-start':
                 # 从friends中随机选取一人投票
-
                 ip_port = random.sample(list(self.friends.values()), 1)[0]
                 new_msg = {
                     'type': 'block-vote',

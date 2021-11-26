@@ -103,5 +103,4 @@ if __name__ == '__main__':
     # 2021-11-20 09:43:06.672446
     block = get_genesis_block()
     pprint(block.get_content())
-    pass
 

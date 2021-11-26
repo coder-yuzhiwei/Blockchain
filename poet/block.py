@@ -15,6 +15,7 @@ class Account:
         }
         return account_content
 
+
 class Block:
     def __init__(self, index=0, time_stamp='', data='', last_hash='', miner_addr='', cur_hash=''):
         self.index = index
@@ -77,18 +78,6 @@ def is_block_valid(old_block, new_block):
 
 
 if __name__ == '__main__':
-    # 'time_stamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
-    # 2021-11-20 09:43:06.672446
-
-    block_content = {
-        'index': 0,
-        'time_stamp': '2021-11-20 09:43:06.672446',
-        'data': 'genesis',
-        'last_hash': '0' * 64,
-        'miner_addr': 'yzw',
-        'cur_hash': 'zadf'
-    }
-    block = Block(**block_content)
+    block = get_genesis_block()
     pprint(block.get_content())
-    pass
 

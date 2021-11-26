@@ -81,15 +81,16 @@ if __name__ == '__main__':
     # 'time_stamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
     # 2021-11-20 09:43:06.672446
 
-    block_content = {
-        'index': 0,
-        'time_stamp': '2021-11-20 09:43:06.672446',
-        'data': 'genesis',
-        'last_hash': '0' * 64,
-        'miner_addr': 'yzw',
-        'cur_hash': 'zadf'
-    }
-    block = Block(**block_content)
+    # block_content = {
+    #     'index': 0,
+    #     'time_stamp': '2021-11-20 09:43:06.672446',
+    #     'data': 'genesis',
+    #     'last_hash': '0' * 64,
+    #     'miner_addr': 'yzw',
+    #     'cur_hash': 'zadf'
+    # }
+    # block = Block(**block_content)
+    block = get_genesis_block()
     pprint(block.get_content())
     pass
 
