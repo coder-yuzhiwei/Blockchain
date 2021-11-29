@@ -12,20 +12,16 @@ class Node:
     account = None
     block_chain = []
 
-    # todo 不同的算法控制变量不同
-    # poet_base = 1
-    # poet_scale = 10
-    # timer = None
+    # control variable for pow
     task = None
     event = threading.Event()
     done = False
 
     def __init__(self, ip, port, name):
-        # p2p网络
+        # P2P Network
         self.ip = ip
         self.port = port
         self.name = name
-        # 路由表包括自己
         self.friends = dict()
         self.friends[self.name] = (self.ip, self.port)
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -48,7 +44,6 @@ class Node:
         else:
             self.udp_socket.sendto(msg, tuple(ip_port))
 
-    # 同样发送给自身
     def send_to_all(self, msg):
         for ip_port in self.friends.values():
             self.send_to_one(msg, ip_port)
@@ -69,7 +64,6 @@ class Node:
         data, addr = self.udp_socket.recvfrom(1024)
         data = data.decode()
         if data[0].isdigit():
-            # 分段传输
             dic = dict()
             pos = 0
             while pos < len(data):
@@ -143,21 +137,14 @@ class Node:
                     print(f"{name} {ip_port} is gone")
                 else:
                     break
-            # todo 修改接到交易信息后的操作
+
             elif msg['type'] == 'block-trade':
-                # data = msg['body']['data']
-                # 启动poet算法
-                # rand = self.poet_base + random.random() * self.poet_base
-                # self.timer = threading.Timer(rand, self.get_miner_priority, args=(data,))
-                # self.timer.start()
                 # 启动pow算法
                 self.task = threading.Thread(target=self.pow_mining, args=(msg,))
                 self.done = False
                 self.event.set()
                 self.task.start()
-            # elif msg['type'] == 'block-miner-priority':
-            #     if self.timer:
-            #         self.timer.cancel()
+
             elif msg['type'] == 'block-new-block':
                 # 收到消息后立马阻塞计算线程
                 self.event.clear()
@@ -195,6 +182,7 @@ class Node:
                         }
                     }
                     self.send_to_one(new_msg, addr)
+
             elif msg['type'] == 'block-sync-answer':
                 length = msg['body']['len']
                 if length > len(self.block_chain):
@@ -212,9 +200,8 @@ class Node:
                 cmd = input(f'{self.name}>')
                 if not cmd:
                     continue
-                # help
-                # c name msg
                 params = cmd.split()
+
                 if params[0] == 'c':
                     msg = {
                         'type': 'chat',
@@ -227,7 +214,7 @@ class Node:
                         print("unknown friends. use 'lf' show all friends")
                         continue
                     self.send_to_one(msg, self.friends[params[1]])
-                # ca msg
+
                 elif params[0] == 'ca':
                     msg = {
                         'type': 'broadcast',
@@ -237,7 +224,7 @@ class Node:
                         }
                     }
                     self.send_to_all(msg)
-                # q
+
                 elif params[0] == 'q':
                     msg = {
                         'type': 'quit',
@@ -247,16 +234,16 @@ class Node:
                     }
                     self.send_to_all(msg)
                     break
-                # lf
+
                 elif params[0] == 'lf':
                     for name, ip_port in self.friends.items():
                         print(name, ip_port)
-                # ln
+
                 elif params[0] == 'ln':
                     print(self.name)
                     print(self.ip, self.port)
                 # 区块链
-                # b
+
                 elif params[0] == 'b':
                     msg = {
                         'type': 'block-trade',
@@ -266,29 +253,31 @@ class Node:
                         }
                     }
                     self.send_to_all(msg)
-                # lb
+
                 elif params[0] == 'lb':
                     for block in self.block_chain:
                         pprint(block.get_content())
-                # la
+
                 elif params[0] == 'la':
                     pprint(self.account.get_content())
+
                 elif params[0] == 'h':
                     tips = {
-                        'b': 'launch mining.    usage: b <data>    eg: b GoodMorning!',
-                        'c': 'chat to one.  usage: c <fname> <data> eg: c yzw GoodMorning!',
-                        'ca': 'chat to all. usage: c <data> eg: c GoodMorning!',
-                        'h': 'show helps.',
-                        'la': 'list account.',
-                        'lb': 'list block chain.',
-                        'lf': 'list friends.',
-                        'ln': 'list node.',
-                        'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
+                        'b':    'launch mining.     usage: b <data>             eg: b GoodMoring!',
+                        'c':    'chat to one.       usage: c <friend> <data>    eg: c yzw GoodMoring!',
+                        'ca':   'chat to all.       usage: c <data>             eg: c GoodMoring!',
+                        'h':    'show helps.',
+                        'la':   'list account.',
+                        'lb':   'list block chain.',
+                        'lf':   'list friends.',
+                        'ln':   'list node.',
+                        'sync': 'sync block chain.  usage: sync <friend>        eg: sync yzw',
                         'sl': 'sync block chain to the longest one.',
-                        'q': 'quit.'
+                        'q':    'quit.'
                     }
                     for cmd, tip in tips.items():
                         print("{:5} {}".format(cmd, tip))
+
                 # sync 同步区块链
                 elif params[0] == 'sync':
                     msg = {
@@ -315,24 +304,6 @@ class Node:
             except BaseException:
                 print('Errors in parameters. Try `h` for more information.')
 
-    # def get_miner_priority(self, data):
-    #     # 立马通知其他节点
-    #     remind_msg = {
-    #         'type': 'block-miner-priority',
-    #         'body': {
-    #             'name': self.name
-    #         }
-    #     }
-    #     self.send_to_all(remind_msg)
-    #     # 生产新的节点
-    #     new_block = get_new_block(self.block_chain[-1], data, self.account.address)
-    #     block_msg = {
-    #         'type': 'block-new-block',
-    #         'body': new_block.get_content()
-    #     }
-    #     self.send_to_all(block_msg)
-
-    # todo 多线程处理函数
     def pow_mining(self, msg):
         old_block = self.block_chain[-1]
         new_block = Block()

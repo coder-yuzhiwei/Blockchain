@@ -20,6 +20,7 @@ class Account:
     def get_money_age(self):
         return self.money * self.day
 
+
 class Block:
     def __init__(self, index=0, time_stamp='', data='', last_hash='', miner_addr='', cur_hash=''):
         self.index = index
@@ -84,5 +85,4 @@ def is_block_valid(old_block, new_block):
 if __name__ == '__main__':
     block = get_genesis_block()
     pprint(block.get_content())
-    pass
 

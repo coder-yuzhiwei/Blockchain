@@ -16,6 +16,7 @@ class Node:
     account = None
     block_chain = []
 
+    # DPOS 相关参数
     tokens = 0
     timer = None
     congress = dict()
@@ -67,7 +68,6 @@ class Node:
         }
         self.send_to_one(msg, known_ip_port)
 
-
     def receive_data(self):
         total_data = ''
         data, addr = self.udp_socket.recvfrom(1024)
@@ -102,6 +102,7 @@ class Node:
     def receive(self):
         while True:
             msg, addr = self.receive_data()
+            # P2P 网络部分
             if msg['type'] == 'explore-query':
                 new_msg = {
                     'type': 'explore-answer',
@@ -148,6 +149,7 @@ class Node:
                 else:
                     break
 
+            # 区块链部分
             elif msg['type'] == 'block-trade':
                 # 启动 dpos算法
                 data = msg['body']['data']
@@ -257,132 +259,134 @@ class Node:
 
     def console(self):
         while True:
-            # 先不使用try catch 方便debug
-            # try:
-            cmd = input(f'{self.name}>')
-            if not cmd:
-                continue
-            # help
-            # c name msg
-            params = cmd.split()
-            if params[0] == 'c':
-                msg = {
-                    'type': 'chat',
-                    'body': {
-                        'name': self.name,
-                        'data': params[2]
-                    }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
+            try:
+                cmd = input(f'{self.name}>')
+                if not cmd:
                     continue
-                self.send_to_one(msg, self.friends[params[1]])
-            # ca msg
-            elif params[0] == 'ca':
-                msg = {
-                    'type': 'broadcast',
-                    'body': {
-                        'name': self.name,
-                        'data': params[1]
-                    }
-                }
-                self.send_to_all(msg)
-            # q
-            elif params[0] == 'q':
-                msg = {
-                    'type': 'quit',
-                    'body': {
-                        'name': self.name
-                    }
-                }
-                self.send_to_all(msg)
-                break
-            # lf
-            elif params[0] == 'lf':
-                for name, ip_port in self.friends.items():
-                    print(name, ip_port)
-            # ln
-            elif params[0] == 'ln':
-                print(self.name)
-                print(self.ip, self.port)
-            # 区块链
-            # b
-            elif params[0] == 'b':
-                if not self.delegate_queue:
-                    # 发动选举
+                params = cmd.split()
+
+                if params[0] == 'c':
                     msg = {
-                        'type': 'block-vote-start'
+                        'type': 'chat',
+                        'body': {
+                            'name': self.name,
+                            'data': params[2]
+                        }
+                    }
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+
+                elif params[0] == 'ca':
+                    msg = {
+                        'type': 'broadcast',
+                        'body': {
+                            'name': self.name,
+                            'data': params[1]
+                        }
                     }
                     self.send_to_all(msg)
-                    # 发送选举结束
-                    self.timer = threading.Timer(MAX_VOTE_TIME, self.vote_ending, args=())
-                    self.timer.start()
-                    self.event.clear()
-                    # 等待直到选举完毕
-                    self.event.wait()
 
-                # 发送信息
-                msg = {
-                    'type': 'block-trade',
-                    'body': {
-                        'data': params[1]
+                elif params[0] == 'q':
+                    msg = {
+                        'type': 'quit',
+                        'body': {
+                            'name': self.name
+                        }
                     }
-                }
-                ip_port = self.delegate_queue.pop(0)
-                self.send_to_one(msg, ip_port)
-            # lb
-            elif params[0] == 'lb':
-                for block in self.block_chain:
-                    pprint(block.get_content())
-            # la
-            elif params[0] == 'la':
-                pprint(self.account.get_content())
-            elif params[0] == 'h':
-                tips = {
-                    'b': 'launch mining.    usage: b <data>    eg: b GoodMoring!',
-                    'c': 'chat to one.  usage: c <fname> <data> eg: c yzw GoodMoring!',
-                    'ca': 'chat to all. usage: c <data> eg: c GoodMoring!',
-                    'h': 'show helps.',
-                    'la': 'list account.',
-                    'lb': 'list block chain.',
-                    'lf': 'list friends.',
-                    'ln': 'list node.',
-                    'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
-                    'sl': 'sync longest block chain',
-                    'q': 'quit.',
-                    'lc': 'list congress',
-                    'ld': 'list delegate_queue'
-                }
-                for cm, tip in tips.items():
-                    print("{:5} {}".format(cm, tip))
-            # sync 同步区块链
-            elif params[0] == 'sync':
-                msg = {
-                    'type': 'block-sync-query',
-                    'body': {
-                        'len': len(self.block_chain)
-                    }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
-                    continue
-                self.send_to_one(msg, self.friends[params[1]])
-            # list congress
-            elif params[0] == 'lc':
-                pprint(self.congress)
-            elif params[0] == 'ld':
-                pprint(self.delegate_queue)
-            elif params[0] == 'ls':
-                pprint(self.supporters)
+                    self.send_to_all(msg)
+                    break
 
-            # except BaseException:
-            #     print('Errors in parameters. Try `h` for more information.')
+                elif params[0] == 'lf':
+                    for name, ip_port in self.friends.items():
+                        print(name, ip_port)
+
+                elif params[0] == 'ln':
+                    print(self.name)
+                    print(self.ip, self.port)
+
+                # 区块链
+                elif params[0] == 'b':
+                    if not self.delegate_queue:
+                        # 发动选举
+                        msg = {
+                            'type': 'block-vote-start'
+                        }
+                        self.send_to_all(msg)
+                        # 发送选举结束
+                        self.timer = threading.Timer(MAX_VOTE_TIME, self.vote_ending, args=())
+                        self.timer.start()
+                        self.event.clear()
+                        # 等待直到选举完毕
+                        self.event.wait()
+
+                    # 发送信息
+                    msg = {
+                        'type': 'block-trade',
+                        'body': {
+                            'data': params[1]
+                        }
+                    }
+                    ip_port = self.delegate_queue.pop(0)
+                    self.send_to_one(msg, ip_port)
+
+                elif params[0] == 'lb':
+                    for block in self.block_chain:
+                        pprint(block.get_content())
+
+                elif params[0] == 'la':
+                    pprint(self.account.get_content())
+
+                elif params[0] == 'h':
+                    tips = {
+                        'b':    'launch mining.     usage: b <data>             eg: b GoodMoring!',
+                        'c':    'chat to one.       usage: c <friend> <data>    eg: c yzw GoodMoring!',
+                        'ca':   'chat to all.       usage: c <data>             eg: c GoodMoring!',
+                        'h':    'show helps.',
+                        'la':   'list account.',
+                        'lb':   'list block chain.',
+                        'lf':   'list friends.',
+                        'ln':   'list node.',
+                        'sync': 'sync block chain.  usage: sync <friend>        eg: sync yzw',
+                        'lc':   'list congress(vote results)',
+                        'ld':   'list delegate queue',
+                        'ls':   'list supports',
+                        'q':    'quit.'
+                    }
+                    for cm, tip in tips.items():
+                        print("{:5} {}".format(cm, tip))
+                # sync 同步区块链
+                elif params[0] == 'sync':
+                    msg = {
+                        'type': 'block-sync-query',
+                        'body': {
+                            'len': len(self.block_chain)
+                        }
+                    }
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+                # list 打印结果
+                elif params[0] == 'lc':
+                    pprint(self.congress)
+
+                elif params[0] == 'ld':
+                    pprint(self.delegate_queue)
+
+                elif params[0] == 'ls':
+                    pprint(self.supporters)
+
+            except BaseException:
+                print('Errors in parameters. Try `h` for more information.')
 
     def vote_ending(self):
         msg = {
             'type': 'block-vote-end'
         }
         self.send_to_all(msg)
+
 
 def main():
     # cmd> python people.py ip port name

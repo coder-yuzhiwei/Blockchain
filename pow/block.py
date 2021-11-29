@@ -2,7 +2,7 @@ import datetime
 import hashlib
 from pprint import pprint
 
-# todo 不同的算法账户结构 和 区块结构 各不相同
+
 class Account:
     def __init__(self, address='', money=0):
         self.address = address
@@ -72,17 +72,6 @@ def get_genesis_block():
     return block
 
 
-# def get_new_block(old_block, data, address):
-#     new_block = Block()
-#     new_block.index = old_block.index + 1
-#     new_block.time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-#     new_block.data = data
-#     new_block.last_hash = old_block.cur_hash
-#     new_block.miner_addr = address
-#     new_block.cur_hash = new_block.cal_hash()
-#     return new_block
-
-
 def is_block_valid(old_block, new_block):
     if old_block.index + 1 != new_block.index:
         return False
@@ -99,8 +88,6 @@ def is_block_valid(old_block, new_block):
 
 
 if __name__ == '__main__':
-    # 'time_stamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
-    # 2021-11-20 09:43:06.672446
     block = get_genesis_block()
     pprint(block.get_content())
 

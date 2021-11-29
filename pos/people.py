@@ -12,6 +12,7 @@ class Node:
     account = None
     block_chain = []
 
+    # POS 相关变量
     interest_rate = 0.05
     data = ''
     ma_table = dict()
@@ -94,6 +95,7 @@ class Node:
     def receive(self):
         while True:
             msg, addr = self.receive_data()
+            # P2P网络部分
             if msg['type'] == 'explore-query':
                 new_msg = {
                     'type': 'explore-answer',
@@ -140,11 +142,8 @@ class Node:
                 else:
                     break
 
+            # 区块链部分
             elif msg['type'] == 'block-trade':
-                # 启动poet算法
-                # rand = self.poet_base + random.random() * self.poet_base
-                # self.timer = threading.Timer(rand, self.get_miner_priority, args=(data,))
-                # self.timer.start()
                 # 启动pos算法
                 # 向信息发布者发送自己的账户信息
                 new_msg = {
@@ -154,6 +153,7 @@ class Node:
                     }
                 }
                 self.send_to_one(new_msg, addr)
+
             elif msg['type'] == 'block-account':
                 money_age = msg['body']['money_age']
                 addr_str = "{}_{}".format(addr[0], addr[1])
@@ -185,6 +185,7 @@ class Node:
                     }
                     ip_port = rand_addr.split('_')
                     self.send_to_one(new_msg, (ip_port[0], int(ip_port[1])))
+
             elif msg['type'] == 'block-miner-priority':
                 data = msg['body']['data']
                 new_block = get_new_block(self.block_chain[-1], data, self.account.address)
@@ -193,6 +194,7 @@ class Node:
                     'body': new_block.get_content()
                 }
                 self.send_to_all(block_msg)
+
             elif msg['type'] == 'block-new-block':
                 new_block = Block(**msg['body'])
                 if is_block_valid(self.block_chain[-1], new_block):
@@ -206,6 +208,7 @@ class Node:
                 # self.data = ''
                 if self.ma_table:
                     self.ma_table = dict()
+
             elif msg['type'] == 'block-sync-query':
                 length = msg['body']['len']
                 if len(self.block_chain) > length:
@@ -230,6 +233,7 @@ class Node:
                         }
                     }
                     self.send_to_one(new_msg, addr)
+
             elif msg['type'] == 'block-sync-answer':
                 length = msg['body']['len']
                 if length > len(self.block_chain):
@@ -243,94 +247,100 @@ class Node:
 
     def console(self):
         while True:
-            cmd = input(f'{self.name}>')
-            if not cmd:
-                continue
-            # help
-            # c name msg
-            params = cmd.split()
-            if params[0] == 'c':
-                msg = {
-                    'type': 'chat',
-                    'body': {
-                        'name': self.name,
-                        'data': params[2]
-                    }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
+            try:
+                cmd = input(f'{self.name}>')
+                if not cmd:
                     continue
-                self.send_to_one(msg, self.friends[params[1]])
-            # ca msg
-            elif params[0] == 'ca':
-                msg = {
-                    'type': 'broadcast',
-                    'body': {
-                        'name': self.name,
-                        'data': params[1]
+                params = cmd.split()
+
+                # P2P网络部分
+                if params[0] == 'c':
+                    msg = {
+                        'type': 'chat',
+                        'body': {
+                            'name': self.name,
+                            'data': params[2]
+                        }
                     }
-                }
-                self.send_to_all(msg)
-            # q
-            elif params[0] == 'q':
-                msg = {
-                    'type': 'quit',
-                    'body': {
-                        'name': self.name
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+
+                elif params[0] == 'ca':
+                    msg = {
+                        'type': 'broadcast',
+                        'body': {
+                            'name': self.name,
+                            'data': params[1]
+                        }
                     }
-                }
-                self.send_to_all(msg)
-                break
-            # lf
-            elif params[0] == 'lf':
-                for name, ip_port in self.friends.items():
-                    print(name, ip_port)
-            # ln
-            elif params[0] == 'ln':
-                print(self.name)
-                print(self.ip, self.port)
-            # 区块链
-            # b
-            elif params[0] == 'b':
-                msg = {
-                    'type': 'block-trade'
-                }
-                self.data = params[1]
-                self.send_to_all(msg)
-            # lb
-            elif params[0] == 'lb':
-                for block in self.block_chain:
-                    pprint(block.get_content())
-            # la
-            elif params[0] == 'la':
-                pprint(self.account.get_content())
-            elif params[0] == 'h':
-                tips = {
-                    'b': 'launch mining.    usage: b <data>    eg: b GoodMoring!',
-                    'c': 'chat to one.  usage: c <fname> <data> eg: c yzw GoodMoring!',
-                    'ca': 'chat to all. usage: c <data> eg: c GoodMoring!',
-                    'h': 'show helps.',
-                    'la': 'list account.',
-                    'lb': 'list block chain.',
-                    'lf': 'list friends.',
-                    'ln': 'list node.',
-                    'sync': 'sync block chain. usage: sync <fname>  eg: sync yzw',
-                    'q': 'quit.'
-                }
-                for cmd, tip in tips.items():
-                    print("{:5} {}".format(cmd, tip))
-            # sync 同步区块链
-            elif params[0] == 'sync':
-                msg = {
-                    'type': 'block-sync-query',
-                    'body': {
-                        'len': len(self.block_chain)
+                    self.send_to_all(msg)
+
+                elif params[0] == 'q':
+                    msg = {
+                        'type': 'quit',
+                        'body': {
+                            'name': self.name
+                        }
                     }
-                }
-                if params[1] not in self.friends:
-                    print("unknown friends. use 'lf' show all friends")
-                    continue
-                self.send_to_one(msg, self.friends[params[1]])
+                    self.send_to_all(msg)
+                    break
+
+                elif params[0] == 'lf':
+                    for name, ip_port in self.friends.items():
+                        print(name, ip_port)
+
+                elif params[0] == 'ln':
+                    print(self.name)
+                    print(self.ip, self.port)
+
+                # 区块链部分
+                elif params[0] == 'b':
+                    msg = {
+                        'type': 'block-trade'
+                    }
+                    self.data = params[1]
+                    self.send_to_all(msg)
+
+                elif params[0] == 'lb':
+                    for block in self.block_chain:
+                        pprint(block.get_content())
+
+                elif params[0] == 'la':
+                    pprint(self.account.get_content())
+
+                elif params[0] == 'h':
+                    tips = {
+                        'b': 'launch mining.        usage: b <data>             eg: b GoodMoring!',
+                        'c': 'chat to one.          usage: c <friend> <data>    eg: c yzw GoodMoring!',
+                        'ca': 'chat to all.         usage: c <data>             eg: c GoodMoring!',
+                        'h': 'show helps.',
+                        'la': 'list account.',
+                        'lb': 'list block chain.',
+                        'lf': 'list friends.',
+                        'ln': 'list node.',
+                        'sync': 'sync block chain.  usage: sync <friend>        eg: sync yzw',
+                        'q': 'quit.'
+                    }
+                    for cmd, tip in tips.items():
+                        print("{:5} {}".format(cmd, tip))
+
+                # sync 同步区块链
+                elif params[0] == 'sync':
+                    msg = {
+                        'type': 'block-sync-query',
+                        'body': {
+                            'len': len(self.block_chain)
+                        }
+                    }
+                    if params[1] not in self.friends:
+                        print("unknown friends. use 'lf' show all friends")
+                        continue
+                    self.send_to_one(msg, self.friends[params[1]])
+
+            except BaseException:
+                print('Errors in parameters. Try `h` for more information.')
 
 
 def main():
